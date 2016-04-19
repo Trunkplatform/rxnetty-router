@@ -1,15 +1,13 @@
 package org.pk11.rxnetty.router;
 
 import io.netty.handler.codec.http.HttpMethod;
-import io.reactivex.netty.channel.Handler;
-import io.reactivex.netty.protocol.http.server.HttpServerRequest;
-import io.reactivex.netty.protocol.http.server.HttpServerResponse;
+import io.reactivex.netty.protocol.http.server.RequestHandler;
 
 /**
  * Creates a jauter.Router using netty's HttpMethod
  */
 public class Router<I, O> extends
-		jauter.Router<HttpMethod, Handler<HttpServerRequest<I>, HttpServerResponse<O>>, Router<I, O>> {
+		jauter.Router<HttpMethod, RequestHandler<I, O>, Router<I, O>> {
 	@Override
 	protected Router<I, O> getThis() {
 		return this;

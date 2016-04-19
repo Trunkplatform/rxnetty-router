@@ -2,3 +2,12 @@
 .settings
 build
 /bin/
+
+# OS X
+.DS_Store
+
+# Intellij
+.idea/
+**/*.iml
+
+.gradle/

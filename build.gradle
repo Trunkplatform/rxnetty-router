@@ -3,7 +3,7 @@ apply plugin: 'maven'
 
 group = 'org.pk11.rxnetty'
 
-version = '0.1'
+version = '0.2'
 
 description = 'http router for rxnetty'
 
@@ -11,11 +11,15 @@ sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
 repositories {
- jcenter()
+  mavenCentral()
+  jcenter()
+  maven { url 'https://oss.jfrog.org/libs-snapshot' }
 }
 
 dependencies {
-    compile 'com.netflix.rxnetty:rx-netty:0.3.18'
+    compile 'io.reactivex:rxnetty-http:0.5.2-SNAPSHOT'
     compile 'tv.cntt:jauter:1.7'
-    testCompile 'junit:junit-dep:4.10'	
+
+    testCompile 'junit:junit:4.12'
+    testCompile 'commons-io:commons-io:2.4'
 }

@@ -1,12 +1,9 @@
 package org.pk11.rxnetty.router;
 
-import io.reactivex.netty.channel.Handler;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
-
 import jauter.Routed;
-
 import rx.Observable;
 
 /*
@@ -50,14 +47,13 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
 	 * 
 	 * @param route
 	 */
-	public static <I, O> Handler<HttpServerRequest<I>, HttpServerResponse<O>> withParams(Route<I, O> route) {
+	public static <I, O> RequestHandler<I, O> withParams(Route<I, O> route) {
 		return route;
 	}
 
 	@Override
 	public Observable<Void> handle(HttpServerRequest<I> request, HttpServerResponse<O> response) {
-		Routed<Handler<HttpServerRequest<I>, HttpServerResponse<O>>> routed = r.route(request.getHttpMethod(),
-				request.getPath());
+		Routed<RequestHandler<I, O>> routed = r.route(request.getHttpMethod(), request.getDecodedPath());
 		if (routed.target() instanceof Route) {
 			return ((Route<I, O>) routed.target()).handle(routed.params(), request, response);
 		} else
