@@ -7,7 +7,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 import org.pk11.rxnetty.router.Router;
-import org.pk11.rxnetty.router.RouterTest;
 import org.pk11.rxnetty.router.cors.CorsDispatcher.CorsSettings;
 
 import io.netty.buffer.ByteBuf;
@@ -16,20 +15,39 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.netty.protocol.http.client.HttpClientRequest;
 import io.reactivex.netty.protocol.http.client.HttpClientResponse;
 import io.reactivex.netty.protocol.http.server.HttpServer;
+import io.reactivex.netty.protocol.http.server.HttpServerRequest;
+import io.reactivex.netty.protocol.http.server.HttpServerResponse;
+import io.reactivex.netty.protocol.http.server.RequestHandler;
+import rx.Observable;
 
 import static io.reactivex.netty.protocol.http.client.HttpClient.newClient;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static rx.Observable.just;
 
 public class CorsDispatcherTest {
+
+  public static class HelloHandler implements RequestHandler<ByteBuf, ByteBuf> {
+    public Observable<Void> handle(HttpServerRequest<ByteBuf> request, HttpServerResponse<ByteBuf> response) {
+      response.setStatus(HttpResponseStatus.OK);
+      return response.writeString(just("Hello!"));
+    }
+  }
+
+  public static class Handler404 implements RequestHandler<ByteBuf, ByteBuf> {
+    public Observable<Void> handle(HttpServerRequest<ByteBuf> request, HttpServerResponse<ByteBuf> response) {
+      response.setStatus(HttpResponseStatus.NOT_FOUND);
+      return response.writeString(just("Not found!"));
+    }
+  }
 
   public HttpServer<ByteBuf, ByteBuf> newServer(CorsSettings settings) {
     return HttpServer.newServer().start(
       CorsDispatcher.usingCors(
         settings,
         new Router<ByteBuf, ByteBuf>()
-          .GET("/hello", new RouterTest.HelloHandler())
-          .notFound(new RouterTest.Handler404())
+          .GET("/hello", new HelloHandler())
+          .notFound(new Handler404())
       )
     );
   }
@@ -557,10 +575,10 @@ public class CorsDispatcherTest {
       CorsDispatcher.usingCors(
         new CorsSettings(),
         new Router<ByteBuf, ByteBuf>()
-          .POST("/hello", new RouterTest.HelloHandler())
-          .DELETE("/hello", new RouterTest.HelloHandler())
-          .GET("/hello", new RouterTest.HelloHandler())
-          .notFound(new RouterTest.Handler404())
+          .POST("/hello", new HelloHandler())
+          .DELETE("/hello", new HelloHandler())
+          .GET("/hello", new HelloHandler())
+          .notFound(new Handler404())
       )
     );
     HttpClientResponse<ByteBuf> response = newClient("localhost", server.getServerPort())
@@ -583,10 +601,10 @@ public class CorsDispatcherTest {
       CorsDispatcher.usingCors(
         new CorsSettings(),
         new Router<ByteBuf, ByteBuf>()
-          .GET("/hello", new RouterTest.HelloHandler())
-          .POST("/hello", new RouterTest.HelloHandler())
-          .OPTIONS("/hello", new RouterTest.HelloHandler())
-          .notFound(new RouterTest.Handler404())
+          .GET("/hello", new HelloHandler())
+          .POST("/hello", new HelloHandler())
+          .OPTIONS("/hello", new HelloHandler())
+          .notFound(new Handler404())
       )
     );
     HttpClientResponse<ByteBuf> response = newClient("localhost", server.getServerPort())

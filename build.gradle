@@ -10,16 +10,31 @@ description = 'http router for rxnetty'
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
-repositories {
-  mavenCentral()
-  jcenter()
-  maven { url 'https://oss.jfrog.org/libs-snapshot' }
-}
+configure(subprojects) {
 
-dependencies {
-    compile 'io.reactivex:rxnetty-http:0.5.2-SNAPSHOT'
-    compile 'tv.cntt:jauter:1.7'
+    apply plugin: 'java'
 
-    testCompile 'junit:junit:4.12'
-    testCompile 'commons-io:commons-io:2.4'
+    group 'org.pk11.rxnetty'
+    version = project.hasProperty('app_version') ? app_version : version
+
+    sourceCompatibility = 1.8
+
+    repositories {
+        mavenCentral()
+        jcenter()
+        maven { url 'https://oss.jfrog.org/libs-snapshot' }
+    }
+
+    dependencies {
+        compile "io.reactivex:rxnetty-http:${rxnetty_version}"
+        compile "tv.cntt:jauter:${jauter_version}"
+
+        testCompile "junit:junit:${junit_version}"
+    }
+
+    test {
+        beforeTest { descriptor ->
+            logger.lifecycle("Running: " + descriptor)
+        }
+    }
 }

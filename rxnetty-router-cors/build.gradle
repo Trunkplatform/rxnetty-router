@@ -1,0 +1,4 @@
+
+dependencies {
+    compile project(':rxnetty-router-core')
+}
