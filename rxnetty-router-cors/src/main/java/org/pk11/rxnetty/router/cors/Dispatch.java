@@ -16,6 +16,7 @@ import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
 import rx.Observable;
 
+import static org.pk11.rxnetty.router.Dispatch.using;
 import static rx.Observable.just;
 
 public class Dispatch<I, O> implements RequestHandler<I, O> {
@@ -26,14 +27,14 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
 
   private final CorsSettings settings;
   private final Router<I, O> router;
-  private final org.pk11.rxnetty.router.Dispatch delegate;
+  private final org.pk11.rxnetty.router.Dispatch<I, O> delegate;
 
   public static <I, O> Dispatch<I, O> usingCors(CorsSettings settings,
                                                 Router<I, O> route) {
-    return new Dispatch<>(settings, route, org.pk11.rxnetty.router.Dispatch.using(route));
+    return new Dispatch<>(settings, route, using(route));
   }
 
-  private Dispatch(CorsSettings settings, Router<I, O> router, org.pk11.rxnetty.router.Dispatch delegate) {
+  private Dispatch(CorsSettings settings, Router<I, O> router, org.pk11.rxnetty.router.Dispatch<I, O> delegate) {
     this.settings = settings;
     this.router = router;
     this.delegate = delegate;

@@ -5,6 +5,7 @@ rxnetty-router-core [ ![Download](https://api.bintray.com/packages/trunkplatform
 
 rxnetty-router-cors [ ![Download](https://api.bintray.com/packages/trunkplatform/trunk-java-oss/rxnetty-router-cors/images/download.svg) ](https://bintray.com/trunkplatform/trunk-java-oss/rxnetty-router-cors/_latestVersion)
 
+[![Build Status](https://snap-ci.com/Trunkplatform/rxnetty-router/branch/master/build_image)](https://snap-ci.com/Trunkplatform/rxnetty-router/branch/master)
 
 A tiny HTTP router for [RxNetty] (https://github.com/ReactiveX/RxNetty). 
 
