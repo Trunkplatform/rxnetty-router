@@ -1,4 +1,11 @@
+plugins {
+    id "com.jfrog.bintray" version "1.2"
+}
+
+description = 'CORS support for rxnetty-router'
 
 dependencies {
     compile project(':rxnetty-router-core')
 }
+
+apply from: '../bintray.gradle'

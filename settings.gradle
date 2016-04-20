@@ -1,3 +1,5 @@
+rootProject.name = 'rx-netty-router'
+
 include 'rxnetty-router-core'
 include 'rxnetty-router-cors'
 include 'rxnetty-router-test'
