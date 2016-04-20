@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 import org.pk11.rxnetty.router.Router;
-import org.pk11.rxnetty.router.cors.CorsDispatcher.CorsSettings;
+import org.pk11.rxnetty.router.cors.Dispatch.CorsSettings;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.HttpMethod;
@@ -25,7 +25,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static rx.Observable.just;
 
-public class CorsDispatcherTest {
+public class DispatchTest {
 
   public static class HelloHandler implements RequestHandler<ByteBuf, ByteBuf> {
     public Observable<Void> handle(HttpServerRequest<ByteBuf> request, HttpServerResponse<ByteBuf> response) {
@@ -43,7 +43,7 @@ public class CorsDispatcherTest {
 
   public HttpServer<ByteBuf, ByteBuf> newServer(CorsSettings settings) {
     return HttpServer.newServer().start(
-      CorsDispatcher.usingCors(
+      Dispatch.usingCors(
         settings,
         new Router<ByteBuf, ByteBuf>()
           .GET("/hello", new HelloHandler())
@@ -572,7 +572,7 @@ public class CorsDispatcherTest {
   @Test
   public void shouldGenerateOptionsResponseIfNoOptionsRoute() throws Exception {
     HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer().start(
-      CorsDispatcher.usingCors(
+      Dispatch.usingCors(
         new CorsSettings(),
         new Router<ByteBuf, ByteBuf>()
           .POST("/hello", new HelloHandler())
@@ -598,7 +598,7 @@ public class CorsDispatcherTest {
   @Test
   public void shouldAppendToProvidedOptionsResponse() throws Exception {
     HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer().start(
-      CorsDispatcher.usingCors(
+      Dispatch.usingCors(
         new CorsSettings(),
         new Router<ByteBuf, ByteBuf>()
           .GET("/hello", new HelloHandler())

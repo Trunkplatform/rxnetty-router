@@ -8,7 +8,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.pk11.rxnetty.router.Dispatch;
 import org.pk11.rxnetty.router.Router;
 
 import io.netty.handler.codec.http.HttpMethod;
@@ -19,7 +18,7 @@ import rx.Observable;
 
 import static rx.Observable.just;
 
-public class CorsDispatcher<I, O> implements RequestHandler<I, O> {
+public class Dispatch<I, O> implements RequestHandler<I, O> {
 
   public static final Collection<HttpMethod> ALL_METHODS = Collections.emptyList();
   public static final Set<String> ANY_HOST = Collections.emptySet();
@@ -27,14 +26,14 @@ public class CorsDispatcher<I, O> implements RequestHandler<I, O> {
 
   private final CorsSettings settings;
   private final Router<I, O> router;
-  private final Dispatch<I, O> delegate;
+  private final org.pk11.rxnetty.router.Dispatch delegate;
 
-  public static <I, O> CorsDispatcher<I, O> usingCors(CorsSettings settings,
-                                                      Router<I, O> route) {
-    return new CorsDispatcher<>(settings, route, Dispatch.using(route));
+  public static <I, O> Dispatch<I, O> usingCors(CorsSettings settings,
+                                                Router<I, O> route) {
+    return new Dispatch<>(settings, route, org.pk11.rxnetty.router.Dispatch.using(route));
   }
 
-  private CorsDispatcher(CorsSettings settings, Router<I, O> router, Dispatch<I, O> delegate) {
+  private Dispatch(CorsSettings settings, Router<I, O> router, org.pk11.rxnetty.router.Dispatch delegate) {
     this.settings = settings;
     this.router = router;
     this.delegate = delegate;

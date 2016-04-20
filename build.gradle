@@ -3,7 +3,7 @@ apply plugin: 'maven'
 
 group = 'org.pk11.rxnetty'
 
-def baseVersion = '1.0'
+def baseVersion = '1.0.0'
 
 description = 'http router for rxnetty'
 
@@ -21,7 +21,7 @@ configure(subprojects) {
     apply plugin: 'maven-publish'
 
     group 'org.pk11.rxnetty'
-    version =  baseVersion + (project.hasProperty('patch_version') ? '.' + patch_version : '-local')
+    version =  baseVersion
 
     sourceCompatibility = 1.8
 
