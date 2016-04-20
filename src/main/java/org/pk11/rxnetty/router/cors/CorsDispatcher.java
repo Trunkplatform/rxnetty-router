@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.pk11.rxnetty.router.Dispatch;
 import org.pk11.rxnetty.router.Router;
@@ -15,6 +16,8 @@ import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
 import rx.Observable;
+
+import static rx.Observable.just;
 
 public class CorsDispatcher<I, O> implements RequestHandler<I, O> {
 
@@ -42,18 +45,26 @@ public class CorsDispatcher<I, O> implements RequestHandler<I, O> {
     String origin = request.getHeader("Origin");
     boolean isCors = request.containsHeader("Origin") && notSameOrigin(request, origin);
 
-    if (isCors && !router.getMethodsFor(request.getDecodedPath()).isEmpty()) {
-      if (originNotAllowed(origin)) {
-        return response.sendHeaders();
-      }
+    if (isCors) {
+      Collection<HttpMethod> methods = router.getMethodsFor(request.getDecodedPath());
+      if (!methods.isEmpty()) {
+        if (originNotAllowed(origin)) {
+          return response.sendHeaders();
+        }
 
-      addSharedHeaders(response, origin);
+        addSharedHeaders(response, origin);
 
-      if (request.getHttpMethod().equals(HttpMethod.OPTIONS)) {
-        addPreflightOnlyHeaders(request, response);
-        return response.sendHeaders();
-      } else {
-        addSimpleOnlyHeaders(response);
+        if (request.getHttpMethod().equals(HttpMethod.OPTIONS)) {
+          addPreflightOnlyHeaders(request, response);
+          if (!methods.contains(HttpMethod.OPTIONS)) {
+
+            return response.writeString(
+              just(String.join(", ", methods.stream().map(m -> m.asciiName()).sorted().collect(Collectors.toList())))
+            );
+          }
+        } else {
+          addSimpleOnlyHeaders(response);
+        }
       }
     }
 

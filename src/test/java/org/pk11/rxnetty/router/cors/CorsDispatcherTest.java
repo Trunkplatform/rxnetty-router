@@ -248,13 +248,9 @@ public class CorsDispatcherTest {
       .toBlocking()
       .first();
 
-    String content = getContent(response);
-
     assertEquals("*", response.getHeader("Access-Control-Allow-Origin"));
 
     assertEquals(HttpResponseStatus.OK, response.getStatus());
-
-    assertEquals("", content);
 
     server.shutdown();
   }
@@ -293,13 +289,9 @@ public class CorsDispatcherTest {
       .toBlocking()
       .first();
 
-    String content = getContent(response);
-
     assertEquals("http://foo", response.getHeader("Access-Control-Allow-Origin"));
 
     assertEquals(HttpResponseStatus.OK, response.getStatus());
-
-    assertEquals("", content);
 
     server.shutdown();
   }
@@ -555,6 +547,58 @@ public class CorsDispatcherTest {
     assertEquals(HttpResponseStatus.NOT_FOUND, response.getStatus());
 
     assertEquals("Not found!", content);
+
+    server.shutdown();
+  }
+
+  @Test
+  public void shouldGenerateOptionsResponseIfNoOptionsRoute() throws Exception {
+    HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer().start(
+      CorsDispatcher.usingCors(
+        new CorsSettings(),
+        new Router<ByteBuf, ByteBuf>()
+          .POST("/hello", new RouterTest.HelloHandler())
+          .DELETE("/hello", new RouterTest.HelloHandler())
+          .GET("/hello", new RouterTest.HelloHandler())
+          .notFound(new RouterTest.Handler404())
+      )
+    );
+    HttpClientResponse<ByteBuf> response = newClient("localhost", server.getServerPort())
+      .readTimeOut(30, TimeUnit.SECONDS)
+      .createOptions("/hello")
+      .setHeader("Origin", "http://foo")
+      .toBlocking()
+      .first();
+
+    String content = getContent(response);
+
+    assertEquals("DELETE, GET, POST", content);
+
+    server.shutdown();
+  }
+
+  @Test
+  public void shouldAppendToProvidedOptionsResponse() throws Exception {
+    HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer().start(
+      CorsDispatcher.usingCors(
+        new CorsSettings(),
+        new Router<ByteBuf, ByteBuf>()
+          .GET("/hello", new RouterTest.HelloHandler())
+          .POST("/hello", new RouterTest.HelloHandler())
+          .OPTIONS("/hello", new RouterTest.HelloHandler())
+          .notFound(new RouterTest.Handler404())
+      )
+    );
+    HttpClientResponse<ByteBuf> response = newClient("localhost", server.getServerPort())
+      .readTimeOut(30, TimeUnit.SECONDS)
+      .createOptions("/hello")
+      .setHeader("Origin", "http://foo")
+      .toBlocking()
+      .first();
+
+    String content = getContent(response);
+
+    assertEquals("Hello!", content);
 
     server.shutdown();
   }
