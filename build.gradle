@@ -3,7 +3,7 @@ apply plugin: 'maven'
 
 group = 'org.pk11.rxnetty'
 
-version = '0.2'
+def baseVersion = '1.0'
 
 description = 'http router for rxnetty'
 
@@ -11,19 +11,19 @@ sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
 configure(subprojects) {
-
-    apply plugin: 'java'
-
-    group 'org.pk11.rxnetty'
-    version = project.hasProperty('app_version') ? app_version : version
-
-    sourceCompatibility = 1.8
-
     repositories {
         mavenCentral()
         jcenter()
         maven { url 'https://oss.jfrog.org/libs-snapshot' }
     }
+
+    apply plugin: 'java'
+    apply plugin: 'maven-publish'
+
+    group 'org.pk11.rxnetty'
+    version =  baseVersion + (project.hasProperty('patch_version') ? '.' + patch_version : '-local')
+
+    sourceCompatibility = 1.8
 
     dependencies {
         compile "io.reactivex:rxnetty-http:${rxnetty_version}"
@@ -35,6 +35,42 @@ configure(subprojects) {
     test {
         beforeTest { descriptor ->
             logger.lifecycle("Running: " + descriptor)
+        }
+    }
+
+    task sourcesJar(type: Jar, dependsOn: classes) {
+        classifier = 'sources'
+        from sourceSets.main.allSource
+    }
+
+    task javadocJar(type: Jar, dependsOn: javadoc) {
+        classifier = 'javadoc'
+        from javadoc.destinationDir
+    }
+    artifacts {
+        archives sourcesJar, javadocJar
+    }
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                pom.withXml {
+                    asNode().dependencies.'*'.findAll() {
+                        it.scope.text() == 'runtime' && project.configurations.compile.allDependencies.find { dep ->
+                            dep.name == it.artifactId.text()
+                        }
+                    }.each() {
+                        it.scope*.value = 'compile'
+                    }
+                }
+                from components.java
+                artifact sourcesJar {
+                    classifier "sources"
+                }
+                artifact javadocJar {
+                    classifier "javadoc"
+                }
+            }
         }
     }
 }

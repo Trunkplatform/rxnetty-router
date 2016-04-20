@@ -1,4 +1,11 @@
+plugins {
+    id "com.jfrog.bintray" version "1.2"
+}
+
+description = 'A tiny HTTP router for RxNetty.'
 
 dependencies {
     testCompile project(':rxnetty-router-test')
 }
+
+apply from: '../bintray.gradle'
