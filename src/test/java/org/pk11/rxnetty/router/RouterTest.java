@@ -8,7 +8,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.Assert;
 import org.junit.Test;
-import io.reactivex.netty.protocol.http.server.file.ClassPathFileRequestHandler;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -17,6 +16,7 @@ import io.reactivex.netty.protocol.http.server.HttpServer;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
+import io.reactivex.netty.protocol.http.server.file.ClassPathFileRequestHandler;
 import rx.Observable;
 
 import static io.reactivex.netty.protocol.http.client.HttpClient.newClient;
@@ -71,7 +71,7 @@ public class RouterTest {
 			.get(10, TimeUnit.SECONDS);
 		finishLatch.await(1, TimeUnit.MINUTES);
 		Assert.assertTrue(response.getStatus().code() == 200);
-
+		server.shutdown();
 	}
 
 	@Test
@@ -90,7 +90,7 @@ public class RouterTest {
 			.get(10, TimeUnit.SECONDS);
 		finishLatch.await(1, TimeUnit.MINUTES);
 		Assert.assertTrue(response.getStatus().code() == 200);
-
+		server.shutdown();
 	}
 
 	@Test
@@ -110,7 +110,7 @@ public class RouterTest {
 			.toBlocking()
 			.forEach(t1 -> result.add(t1));
 		Assert.assertTrue(result.get(0).equals("params:yay"));
-
+		server.shutdown();
 	}
 
 	@Test
@@ -129,7 +129,7 @@ public class RouterTest {
 			.get(10, TimeUnit.SECONDS);
 		finishLatch.await(1, TimeUnit.MINUTES);
 		Assert.assertTrue(response.getStatus().code() == 404);
-
+		server.shutdown();
 	}
 
 	@Test
@@ -147,7 +147,7 @@ public class RouterTest {
 			.get(10, TimeUnit.SECONDS);
 		finishLatch.await(1, TimeUnit.MINUTES);
 		Assert.assertTrue(response.getStatus().code() == 404);
-
+		server.shutdown();
 	}
 
 }

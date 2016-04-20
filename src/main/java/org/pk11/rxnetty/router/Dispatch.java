@@ -39,7 +39,7 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
 	 * @param user supplied router
 	 */
 	public static <I, O> Dispatch<I, O> using(Router<I, O> r) {
-		return new Dispatch<I, O>(r);
+		return new Dispatch<>(r);
 	}
 
 	/**
