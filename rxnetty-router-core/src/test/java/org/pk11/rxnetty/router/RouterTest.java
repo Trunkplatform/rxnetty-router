@@ -150,4 +150,28 @@ public class RouterTest {
 		server.shutdown();
 	}
 
+	@Test
+	public void shouldRegisterNewRoutes() throws Exception {
+		final CountDownLatch finishLatch = new CountDownLatch(1);
+		Routable<ByteBuf, ByteBuf> helloRoutable = router -> router.GET("/hello", new HelloHandler());
+		HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer().start(
+			using(
+				new Router<ByteBuf, ByteBuf>()
+					.register(helloRoutable)
+			)
+		);
+
+		HttpClientResponse<ByteBuf> response = newClient("localhost", server.getServerPort())
+			.createGet("/hello")
+			.finallyDo(
+				() ->
+					finishLatch.countDown()
+			)
+			.toBlocking()
+			.toFuture()
+			.get(10, TimeUnit.SECONDS);
+		finishLatch.await(1, TimeUnit.MINUTES);
+		Assert.assertTrue(response.getStatus().code() == 200);
+		server.shutdown();
+	}
 }

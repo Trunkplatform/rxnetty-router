@@ -3,12 +3,10 @@ package org.pk11.rxnetty.router;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.stream.Collectors;
 
 import io.netty.handler.codec.http.HttpMethod;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
-import jauter.Routed;
 
 /**
  * Creates a jauter.Router using netty's HttpMethod
@@ -36,6 +34,17 @@ public class Router<I, O> extends jauter.Router<HttpMethod, RequestHandler<I, O>
 			.filter(e -> e.getValue().route(path) != null)
 			.map(e -> e.getKey())
 			.collect(Collectors.toList());
+	}
+
+	/**
+	 * Allow a Routable to inject routing information into the route at runtime,
+   * such as from a data- or plugin-generated routes.
+   *
+	 * @return this router with the changes from the Routable applied
+   */
+	public Router<I, O> register(Routable<I, O> routable) {
+		routable.registerWith(this);
+		return getThis();
 	}
 
 	@Override

@@ -76,8 +76,9 @@ HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer().start(
   usingCors(
     new CorsSettings(),
     new Router<ByteBuf, ByteBuf>()
+      .register(router -> router.POST("/hello", new HelloHandler()))
       .GET("/hello", new HelloHandler())
-      .GET("/article/:id", withParams((params, request, response)->{
+      .GET("/article/:id", withParams((params, request, response) -> {
         response.setStatus(HttpResponseStatus.OK);
         response.writeString("params:"+ params.get("id"));
         return response.close();
