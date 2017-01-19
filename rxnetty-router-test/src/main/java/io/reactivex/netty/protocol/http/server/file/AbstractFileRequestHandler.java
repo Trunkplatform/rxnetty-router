@@ -15,6 +15,12 @@
  */
 package io.reactivex.netty.protocol.http.server.file;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.reactivex.netty.protocol.http.server.HttpServerResponse;
+import io.reactivex.netty.protocol.http.server.RequestHandler;
+
+import javax.activation.MimetypesFileTypeMap;
 import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -25,13 +31,6 @@ import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.regex.Pattern;
-
-import javax.activation.MimetypesFileTypeMap;
-
-import io.netty.buffer.ByteBuf;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.reactivex.netty.protocol.http.server.HttpServerResponse;
-import io.reactivex.netty.protocol.http.server.RequestHandler;
 
 public abstract class AbstractFileRequestHandler implements RequestHandler<ByteBuf, ByteBuf> {
   public static final Pattern INSECURE_URI = Pattern.compile(".*[<>&\"].*");

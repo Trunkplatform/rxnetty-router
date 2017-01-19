@@ -15,13 +15,13 @@
  */
 package io.reactivex.netty.protocol.http.server.file;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * FileRequestHandler that reads files from the class path

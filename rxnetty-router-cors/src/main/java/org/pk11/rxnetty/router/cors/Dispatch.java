@@ -1,42 +1,69 @@
 package org.pk11.rxnetty.router.cors;
 
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import org.pk11.rxnetty.router.Router;
-
 import io.netty.handler.codec.http.HttpMethod;
+import io.netty.util.AsciiString;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
+import org.pk11.rxnetty.router.Router;
 import rx.Observable;
+
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.pk11.rxnetty.router.Dispatch.using;
 import static rx.Observable.just;
 
 public class Dispatch<I, O> implements RequestHandler<I, O> {
 
-  public static final Collection<HttpMethod> ALL_METHODS = Collections.emptyList();
-  public static final Set<String> ANY_HOST = Collections.emptySet();
-  public static final Duration DEFAULT_MAX_AGE = Duration.of(10, ChronoUnit.SECONDS);
-
   private final CorsSettings settings;
-  private final Router<I, O> router;
   private final org.pk11.rxnetty.router.Dispatch<I, O> delegate;
 
-  public static <I, O> Dispatch<I, O> usingCors(CorsSettings settings,
-                                                Router<I, O> route) {
-    return new Dispatch<>(settings, route, using(route));
+  public static <I, O> Dispatch<I, O> usingCors(
+    CorsSettings settings,
+    Router<I, O> route
+  ) {
+    Collection<String> optionPaths = route.getPaths();
+    optionPaths.forEach(
+      path ->
+        route.OPTIONS(path, getOptionsHandler(settings, route.getMethodsFor(path)))
+    );
+    return new Dispatch<>(settings, using(route));
   }
 
-  private Dispatch(CorsSettings settings, Router<I, O> router, org.pk11.rxnetty.router.Dispatch<I, O> delegate) {
+  private static <I, O> RequestHandler<I, O> getOptionsHandler(CorsSettings settings, Collection<HttpMethod> methods) {
+    List<String> availableMethods =
+      methods.stream().map(HttpMethod::asciiName).map(AsciiString::toString).sorted().collect(Collectors.toList());
+    List<String> allowedMethods = new ArrayList<>(availableMethods);
+    if (!settings.allowedMethods.isEmpty()) {
+      allowedMethods.retainAll(settings.allowedMethods);
+    }
+
+    Collections.sort(availableMethods);
+    Collections.sort(allowedMethods);
+
+    String availableMethodsString = String.join(", ", availableMethods);
+    String allowedMethodsString = String.join(", ", allowedMethods);
+    return (request, response) -> {
+      addPreflightOnlyHeaders(request, response, settings);
+      response.setHeader("Access-Control-Allow-Methods", allowedMethodsString);
+      return response.writeString(
+        just(availableMethodsString)
+      );
+    };
+  }
+
+  private Dispatch(CorsSettings settings, org.pk11.rxnetty.router.Dispatch<I, O> delegate) {
     this.settings = settings;
-    this.router = router;
     this.delegate = delegate;
   }
 
@@ -46,26 +73,11 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
     boolean isCors = request.containsHeader("Origin") && notSameOrigin(request, origin);
 
     if (isCors) {
-      Collection<HttpMethod> methods = router.getMethodsFor(request.getDecodedPath());
-      if (!methods.isEmpty()) {
-        if (originNotAllowed(origin)) {
-          return response.sendHeaders();
-        }
-
-        addSharedHeaders(response, origin);
-
-        if (request.getHttpMethod().equals(HttpMethod.OPTIONS)) {
-          addPreflightOnlyHeaders(request, response);
-          if (!methods.contains(HttpMethod.OPTIONS)) {
-
-            return response.writeString(
-              just(String.join(", ", methods.stream().map(m -> m.asciiName()).sorted().collect(Collectors.toList())))
-            );
-          }
-        } else {
-          addSimpleOnlyHeaders(response);
-        }
+      if (originNotAllowed(origin)) {
+        return response.sendHeaders();
       }
+      addSharedHeaders(response, origin);
+      addSimpleOnlyHeaders(response);
     }
 
     return delegate.handle(request, response);
@@ -77,20 +89,27 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
     }
   }
 
-  private void addPreflightOnlyHeaders(HttpServerRequest<I> request, HttpServerResponse<O> response) {
+  private static <I, O> void addPreflightOnlyHeaders(
+    HttpServerRequest<I> request,
+    HttpServerResponse<O> response,
+    CorsSettings settings
+  ) {
     if (settings.maxAge != null) {
       response.setHeader("Access-Control-Max-Age", settings.maxAge.get(ChronoUnit.SECONDS));
     }
     if (request.containsHeader("Access-Control-Request-Headers") || settings.allowedHeaders.length() > 0) {
       response.setHeader("Access-Control-Allow-Headers", settings.allowedHeaders);
     }
-    response.setHeader("Access-Control-Allow-Methods", settings.allowedMethods);
+    settings.headers.entrySet().forEach(
+      header ->
+        response.setHeader(header.getKey(), header.getValue())
+    );
   }
 
   private void addSharedHeaders(HttpServerResponse<O> response, String origin) {
     response.setHeader("Access-Control-Allow-Origin", settings.allowedOrigins.isEmpty() ? "*" : origin);
 
-    if (settings.allowedCredentials) {
+    if (settings.allowCredentials) {
       response.setHeader("Access-Control-Allow-Credentials", "true");
     }
   }
@@ -104,34 +123,45 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
   }
 
   public static class CorsSettings {
-    private final boolean allowedCredentials;
+    private final boolean allowCredentials;
     private final CharSequence allowedHeaders;
-    private final CharSequence allowedMethods;
+    private final Set<String> allowedMethods;
     private final Set<String> allowedOrigins;
     private final CharSequence exposedHeaders;
     private final Duration maxAge;
+    private final Map<String, String> headers;
 
     public CorsSettings() {
-      allowedMethods = "*";
-      allowedCredentials = false;
+      allowedMethods = Collections.emptySet();
+      allowCredentials = false;
       allowedHeaders = "";
       allowedOrigins = Collections.emptySet();
-      exposedHeaders = "";
+      exposedHeaders = "Cache-Control, " +
+        "Content-Language, " +
+        "Content-Type, " +
+        "Expires, " +
+        "Last-Modified, " +
+        "Pragma";
       maxAge = null;
+      headers = Collections.emptyMap();
     }
 
-    private CorsSettings(boolean allowedCredentials,
-                         CharSequence allowedHeaders,
-                         CharSequence allowedMethods,
-                         Set<String> allowedOrigins,
-                         CharSequence exposedHeaders,
-                         Duration maxAge) {
-      this.allowedCredentials = allowedCredentials;
+    private CorsSettings(
+      boolean allowCredentials,
+      CharSequence allowedHeaders,
+      Set<String> allowedMethods,
+      Set<String> allowedOrigins,
+      CharSequence exposedHeaders,
+      Duration maxAge,
+      Map<String, String> headers
+    ) {
+      this.allowCredentials = allowCredentials;
       this.allowedHeaders = allowedHeaders;
       this.allowedMethods = allowedMethods;
       this.allowedOrigins = allowedOrigins;
       this.exposedHeaders = exposedHeaders;
       this.maxAge = maxAge;
+      this.headers = headers;
     }
 
     public CorsSettings allowCredential(boolean newValue) {
@@ -141,29 +171,35 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
         allowedMethods,
         allowedOrigins,
         exposedHeaders,
-        maxAge
+        maxAge,
+        headers
       );
     }
 
     public CorsSettings allowHeader(String header) {
       return new CorsSettings(
-        allowedCredentials,
+        allowCredentials,
         allowedHeaders.length() == 0 ? header : allowedHeaders + ", " + header,
         allowedMethods,
         allowedOrigins,
         exposedHeaders,
-        maxAge
+        maxAge,
+        headers
       );
     }
 
     public CorsSettings allowMethod(HttpMethod method) {
+      Set<String> newAllowedMethods = new HashSet<>();
+      newAllowedMethods.addAll(allowedMethods);
+      newAllowedMethods.add(method.asciiName().toString());
       return new CorsSettings(
-        allowedCredentials,
+        allowCredentials,
         allowedHeaders,
-        allowedMethods.equals("*") ? method.asciiName() : allowedMethods + ", " + method.asciiName(),
+        newAllowedMethods,
         allowedOrigins,
         exposedHeaders,
-        maxAge
+        maxAge,
+        headers
       );
     }
 
@@ -172,34 +208,51 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
       newOrigins.addAll(allowedOrigins);
       newOrigins.add(origin);
       return new CorsSettings(
-        allowedCredentials,
+        allowCredentials,
         allowedHeaders,
         allowedMethods,
         Collections.unmodifiableSet(newOrigins),
         exposedHeaders,
-        maxAge
+        maxAge,
+        headers
       );
     }
 
     public CorsSettings exposeHeader(String header) {
       return new CorsSettings(
-        allowedCredentials,
+        allowCredentials,
         allowedHeaders,
         allowedMethods,
         allowedOrigins,
         exposedHeaders.length() == 0 ? header : exposedHeaders + ", " + header,
-        maxAge
+        maxAge,
+        headers
       );
     }
 
     public CorsSettings maxAge(Duration newDuration) {
       return new CorsSettings(
-        allowedCredentials,
+        allowCredentials,
         allowedHeaders,
         allowedMethods,
         allowedOrigins,
         exposedHeaders,
-        newDuration
+        newDuration,
+        headers
+      );
+    }
+
+    public CorsSettings withHeader(String name, String value) {
+      Map<String, String> newHeaders = new HashMap<>(headers);
+      newHeaders.put(name, value);
+      return new CorsSettings(
+        allowCredentials,
+        allowedHeaders,
+        allowedMethods,
+        allowedOrigins,
+        exposedHeaders,
+        maxAge,
+        newHeaders
       );
     }
   }

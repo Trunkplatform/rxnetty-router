@@ -1,12 +1,15 @@
 package org.pk11.rxnetty.router;
 
+import io.netty.handler.codec.http.HttpMethod;
+import io.reactivex.netty.protocol.http.server.RequestHandler;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
-
-import io.netty.handler.codec.http.HttpMethod;
-import io.reactivex.netty.protocol.http.server.RequestHandler;
 
 /**
  * Creates a jauter.Router using netty's HttpMethod
@@ -25,14 +28,15 @@ public class Router<I, O> extends jauter.Router<HttpMethod, RequestHandler<I, O>
 			HttpMethod.TRACE
 		)
 	);
+  private Set<String> paths = new HashSet<>();
 
-	public Collection<HttpMethod> getMethodsFor(String path) {
+  public Collection<HttpMethod> getMethodsFor(String path) {
 		if (anyMethodRouter.route(path) != null) {
 			return ALL_METHODS;
 		}
 		return routers.entrySet().stream()
 			.filter(e -> e.getValue().route(path) != null)
-			.map(e -> e.getKey())
+			.map(Map.Entry::getKey)
 			.collect(Collectors.toList());
 	}
 
@@ -96,4 +100,32 @@ public class Router<I, O> extends jauter.Router<HttpMethod, RequestHandler<I, O>
 	protected HttpMethod TRACE() {
 		return HttpMethod.TRACE;
 	}
+
+	public Collection<String> getPaths() {
+		return paths;
+	}
+
+  @Override
+  public Router<I, O> pattern(HttpMethod method, String path, RequestHandler<I, O> target) {
+	  paths.add(path);
+    return super.pattern(method, path, target);
+  }
+
+  @Override
+  public Router<I, O> patternFirst(HttpMethod method, String path, RequestHandler<I, O> target) {
+    paths.add(path);
+    return super.patternFirst(method, path, target);
+  }
+
+  @Override
+  public Router<I, O> patternLast(HttpMethod method, String path, RequestHandler<I, O> target) {
+    paths.add(path);
+    return super.patternLast(method, path, target);
+  }
+
+  @Override
+  public void removePath(String path) {
+    paths.remove(path);
+    super.removePath(path);
+  }
 }

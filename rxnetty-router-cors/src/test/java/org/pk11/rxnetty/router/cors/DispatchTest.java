@@ -1,14 +1,5 @@
 package org.pk11.rxnetty.router.cors;
 
-import java.nio.charset.Charset;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.concurrent.TimeUnit;
-
-import org.junit.Test;
-import org.pk11.rxnetty.router.Router;
-import org.pk11.rxnetty.router.cors.Dispatch.CorsSettings;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -18,7 +9,15 @@ import io.reactivex.netty.protocol.http.server.HttpServer;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
+import org.junit.Test;
+import org.pk11.rxnetty.router.Router;
+import org.pk11.rxnetty.router.cors.Dispatch.CorsSettings;
 import rx.Observable;
+
+import java.nio.charset.Charset;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.util.concurrent.TimeUnit;
 
 import static io.reactivex.netty.protocol.http.client.HttpClient.newClient;
 import static org.junit.Assert.assertEquals;
@@ -213,14 +212,15 @@ public class DispatchTest {
   }
 
   @Test
-  public void shouldDefaultToNotExposeHeadersGivenSimpleRequest() throws Exception {
+  public void shouldDefaultToStandardExposeHeadersGivenSimpleRequest() throws Exception {
     HttpServer<ByteBuf, ByteBuf> server = newServer(new CorsSettings());
     HttpClientResponse<ByteBuf> response = getClient(server)
       .setHeader("Origin", "http://foo")
       .toBlocking()
       .first();
 
-    assertFalse(response.containsHeader("Access-Control-Expose-Headers"));
+    response.getHeaderNames().forEach(s -> System.out.println(s + " " + response.getHeader(s)));
+    assertEquals("Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma", response.getHeader("Access-Control-Expose-Headers"));
 
     server.shutdown();
   }
@@ -236,7 +236,7 @@ public class DispatchTest {
       .toBlocking()
       .first();
 
-    assertEquals("header-1", response.getHeader("Access-Control-Expose-Headers"));
+    assertEquals("Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma, header-1", response.getHeader("Access-Control-Expose-Headers"));
 
     server.shutdown();
   }
@@ -253,7 +253,7 @@ public class DispatchTest {
       .toBlocking()
       .first();
 
-    assertEquals("header-1, header-2", response.getHeader("Access-Control-Expose-Headers"));
+    assertEquals("Cache-Control, Content-Language, Content-Type, Expires, Last-Modified, Pragma, header-1, header-2", response.getHeader("Access-Control-Expose-Headers"));
 
     server.shutdown();
   }
@@ -315,14 +315,14 @@ public class DispatchTest {
   }
 
   @Test
-  public void shouldDefaultToAllMethodsForGivenPreflightRequest() throws Exception {
+  public void shouldDefaultToAllAvailableMethodsForGivenPreflightRequest() throws Exception {
     HttpServer<ByteBuf, ByteBuf> server = newServer(new CorsSettings());
     HttpClientResponse<ByteBuf> response = optionsClient(server)
       .setHeader("Origin", "http://foo")
       .toBlocking()
       .first();
 
-    assertEquals("*", response.getHeader("Access-Control-Allow-Methods"));
+    assertEquals("GET", response.getHeader("Access-Control-Allow-Methods"));
 
     server.shutdown();
   }
@@ -345,17 +345,25 @@ public class DispatchTest {
 
   @Test
   public void shouldReturnMultipleMethodsGivenPreflightRequest() throws Exception {
-    HttpServer<ByteBuf, ByteBuf> server = newServer(
-      new CorsSettings()
-        .allowMethod(HttpMethod.GET)
-        .allowMethod(HttpMethod.DELETE)
+    HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer().start(
+      Dispatch.usingCors(
+        new CorsSettings()
+          .allowMethod(HttpMethod.GET)
+          .allowMethod(HttpMethod.PUT)
+          .allowMethod(HttpMethod.DELETE),
+        new Router<ByteBuf, ByteBuf>()
+          .GET("/hello", new HelloHandler())
+          .DELETE("/hello", new HelloHandler())
+          .POST("/hello", new HelloHandler())
+          .notFound(new Handler404())
+      )
     );
     HttpClientResponse<ByteBuf> response = optionsClient(server)
       .setHeader("Origin", "http://foo")
       .toBlocking()
       .first();
 
-    assertEquals("GET, DELETE", response.getHeader("Access-Control-Allow-Methods"));
+    assertEquals("DELETE, GET", response.getHeader("Access-Control-Allow-Methods"));
 
     server.shutdown();
   }
@@ -529,12 +537,10 @@ public class DispatchTest {
 
     String content = getContent(response);
 
-    assertFalse(response.containsHeader("Access-Control-Allow-Origin"));
     assertFalse(response.containsHeader("Access-Control-Allow-Methods"));
     assertFalse(response.containsHeader("Access-Control-Allow-Headers"));
     assertFalse(response.containsHeader("Access-Control-Allow-Credentials"));
     assertFalse(response.containsHeader("Access-Control-Max-Age"));
-    assertFalse(response.containsHeader("Access-Control-Expose-Headers"));
 
     assertEquals(HttpResponseStatus.NOT_FOUND, response.getStatus());
 
@@ -555,12 +561,10 @@ public class DispatchTest {
 
     String content = getContent(response);
 
-    assertFalse(response.containsHeader("Access-Control-Allow-Origin"));
     assertFalse(response.containsHeader("Access-Control-Allow-Methods"));
     assertFalse(response.containsHeader("Access-Control-Allow-Headers"));
     assertFalse(response.containsHeader("Access-Control-Allow-Credentials"));
     assertFalse(response.containsHeader("Access-Control-Max-Age"));
-    assertFalse(response.containsHeader("Access-Control-Expose-Headers"));
 
     assertEquals(HttpResponseStatus.NOT_FOUND, response.getStatus());
 
@@ -617,6 +621,38 @@ public class DispatchTest {
     String content = getContent(response);
 
     assertEquals("Hello!", content);
+
+    server.shutdown();
+  }
+
+  @Test
+  public void shouldAddHeaderToOptions() throws Exception {
+    HttpServer<ByteBuf, ByteBuf> server = newServer(
+      new CorsSettings()
+        .withHeader("X-Foo", "Bar")
+    );
+    HttpClientResponse<ByteBuf> response = optionsClient(server)
+      .setHeader("Origin", "http://foo")
+      .toBlocking()
+      .first();
+
+    assertEquals("Bar", response.getHeader("X-Foo"));
+
+    server.shutdown();
+  }
+
+  @Test
+  public void shouldNotAddHeaderToGet() throws Exception {
+    HttpServer<ByteBuf, ByteBuf> server = newServer(
+      new CorsSettings()
+        .withHeader("X-Foo", "Bar")
+    );
+    HttpClientResponse<ByteBuf> response = getClient(server)
+      .setHeader("Origin", "http://foo")
+      .toBlocking()
+      .first();
+
+    assertFalse(response.containsHeader("X-Foo"));
 
     server.shutdown();
   }

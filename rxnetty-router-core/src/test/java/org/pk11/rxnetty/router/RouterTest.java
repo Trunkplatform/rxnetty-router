@@ -1,14 +1,5 @@
 package org.pk11.rxnetty.router;
 
-import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import org.junit.Assert;
-import org.junit.Test;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.netty.protocol.http.client.HttpClientResponse;
@@ -17,7 +8,15 @@ import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
 import io.reactivex.netty.protocol.http.server.file.ClassPathFileRequestHandler;
+import org.junit.Assert;
+import org.junit.Test;
 import rx.Observable;
+
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static io.reactivex.netty.protocol.http.client.HttpClient.newClient;
 import static org.pk11.rxnetty.router.Dispatch.using;
@@ -62,10 +61,7 @@ public class RouterTest {
 
 		HttpClientResponse<ByteBuf> response = newClient("localhost", server.getServerPort())
 			.createGet("/hello")
-			.finallyDo(
-				() ->
-					finishLatch.countDown()
-			)
+			.doAfterTerminate(finishLatch::countDown)
 			.toBlocking()
 			.toFuture()
 			.get(10, TimeUnit.SECONDS);
