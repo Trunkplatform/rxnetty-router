@@ -656,4 +656,38 @@ public class DispatchTest {
 
     server.shutdown();
   }
+
+  @Test
+  public void shouldBlockWhenAuthFailsOnOptions() throws Exception {
+    HttpServer<ByteBuf, ByteBuf> server = newServer(
+      new CorsSettings()
+        .withHeader("X-Foo", "Bar")
+        .withSecurity(request -> false)
+    );
+    HttpClientResponse<ByteBuf> response = optionsClient(server)
+      .setHeader("Origin", "http://foo")
+      .toBlocking()
+      .first();
+
+    assertEquals(HttpResponseStatus.UNAUTHORIZED, response.getStatus());
+
+    server.shutdown();
+  }
+
+  @Test
+  public void shouldNotBlockWhenAuthFailsOnGet() throws Exception {
+    HttpServer<ByteBuf, ByteBuf> server = newServer(
+      new CorsSettings()
+        .withHeader("X-Foo", "Bar")
+        .withSecurity(request -> false)
+    );
+    HttpClientResponse<ByteBuf> response = getClient(server)
+      .setHeader("Origin", "http://foo")
+      .toBlocking()
+      .first();
+
+    assertEquals(HttpResponseStatus.OK, response.getStatus());
+
+    server.shutdown();
+  }
 }

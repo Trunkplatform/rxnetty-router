@@ -1,6 +1,7 @@
 package org.pk11.rxnetty.router.cors;
 
 import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.util.AsciiString;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
@@ -54,6 +55,12 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
     String availableMethodsString = String.join(", ", availableMethods);
     String allowedMethodsString = String.join(", ", allowedMethods);
     return (request, response) -> {
+
+      if (!settings.authorisationHandler.allow(request)) {
+        response.setStatus(HttpResponseStatus.UNAUTHORIZED);
+        return response.sendHeaders();
+      }
+
       addPreflightOnlyHeaders(request, response, settings);
       response.setHeader("Access-Control-Allow-Methods", allowedMethodsString);
       return response.writeString(
@@ -130,6 +137,7 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
     private final CharSequence exposedHeaders;
     private final Duration maxAge;
     private final Map<String, String> headers;
+    private final AuthorisationHandler authorisationHandler;
 
     public CorsSettings() {
       allowedMethods = Collections.emptySet();
@@ -144,6 +152,7 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
         "Pragma";
       maxAge = null;
       headers = Collections.emptyMap();
+      authorisationHandler = request -> true;
     }
 
     private CorsSettings(
@@ -153,7 +162,8 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
       Set<String> allowedOrigins,
       CharSequence exposedHeaders,
       Duration maxAge,
-      Map<String, String> headers
+      Map<String, String> headers,
+      AuthorisationHandler authorisationHandler
     ) {
       this.allowCredentials = allowCredentials;
       this.allowedHeaders = allowedHeaders;
@@ -162,6 +172,7 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
       this.exposedHeaders = exposedHeaders;
       this.maxAge = maxAge;
       this.headers = headers;
+      this.authorisationHandler = authorisationHandler;
     }
 
     public CorsSettings allowCredential(boolean newValue) {
@@ -172,7 +183,8 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
         allowedOrigins,
         exposedHeaders,
         maxAge,
-        headers
+        headers,
+        authorisationHandler
       );
     }
 
@@ -184,7 +196,8 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
         allowedOrigins,
         exposedHeaders,
         maxAge,
-        headers
+        headers,
+        authorisationHandler
       );
     }
 
@@ -199,7 +212,8 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
         allowedOrigins,
         exposedHeaders,
         maxAge,
-        headers
+        headers,
+        authorisationHandler
       );
     }
 
@@ -214,7 +228,8 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
         Collections.unmodifiableSet(newOrigins),
         exposedHeaders,
         maxAge,
-        headers
+        headers,
+        authorisationHandler
       );
     }
 
@@ -226,7 +241,8 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
         allowedOrigins,
         exposedHeaders.length() == 0 ? header : exposedHeaders + ", " + header,
         maxAge,
-        headers
+        headers,
+        authorisationHandler
       );
     }
 
@@ -238,7 +254,8 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
         allowedOrigins,
         exposedHeaders,
         newDuration,
-        headers
+        headers,
+        authorisationHandler
       );
     }
 
@@ -252,9 +269,26 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
         allowedOrigins,
         exposedHeaders,
         maxAge,
-        newHeaders
+        newHeaders,
+        authorisationHandler
+      );
+    }
+
+    public CorsSettings withSecurity(AuthorisationHandler authorisationHandler) {
+      return new CorsSettings(
+        allowCredentials,
+        allowedHeaders,
+        allowedMethods,
+        allowedOrigins,
+        exposedHeaders,
+        maxAge,
+        headers,
+        authorisationHandler
       );
     }
   }
 
+  public interface AuthorisationHandler {
+    boolean allow(HttpServerRequest<?> request);
+  }
 }
