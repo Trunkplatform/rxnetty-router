@@ -54,19 +54,24 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
 
     String availableMethodsString = String.join(", ", availableMethods);
     String allowedMethodsString = String.join(", ", allowedMethods);
-    return (request, response) -> {
-
-      if (!settings.authorisationHandler.allow(request)) {
-        response.setStatus(HttpResponseStatus.UNAUTHORIZED);
-        return response.sendHeaders();
-      }
-
-      addPreflightOnlyHeaders(request, response, settings);
-      response.setHeader("Access-Control-Allow-Methods", allowedMethodsString);
-      return response.writeString(
-        just(availableMethodsString)
-      );
-    };
+    return (request, response) ->
+      settings.authorisationHandler.allow(request)
+        .filter(allow -> allow)
+        .flatMap(
+          v -> {
+            addPreflightOnlyHeaders(request, response, settings);
+            response.setHeader("Access-Control-Allow-Methods", allowedMethodsString);
+            return response.writeString(just(availableMethodsString));
+          }
+        )
+        .switchIfEmpty(
+          Observable.just(1).flatMap(
+            v -> {
+              response.setStatus(HttpResponseStatus.UNAUTHORIZED);
+              return response.sendHeaders();
+            }
+          )
+        );
   }
 
   private Dispatch(CorsSettings settings, org.pk11.rxnetty.router.Dispatch<I, O> delegate) {
@@ -152,7 +157,7 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
         "Pragma";
       maxAge = null;
       headers = Collections.emptyMap();
-      authorisationHandler = request -> true;
+      authorisationHandler = request -> just(true);
     }
 
     private CorsSettings(
@@ -274,7 +279,7 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
       );
     }
 
-    public CorsSettings withSecurity(AuthorisationHandler authorisationHandler) {
+    public CorsSettings withAuthorisation(AuthorisationHandler authorisationHandler) {
       return new CorsSettings(
         allowCredentials,
         allowedHeaders,
@@ -289,6 +294,6 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
   }
 
   public interface AuthorisationHandler {
-    boolean allow(HttpServerRequest<?> request);
+    Observable<Boolean> allow(HttpServerRequest<?> request);
   }
 }

@@ -662,7 +662,7 @@ public class DispatchTest {
     HttpServer<ByteBuf, ByteBuf> server = newServer(
       new CorsSettings()
         .withHeader("X-Foo", "Bar")
-        .withSecurity(request -> false)
+        .withAuthorisation(request -> just(false))
     );
     HttpClientResponse<ByteBuf> response = optionsClient(server)
       .setHeader("Origin", "http://foo")
@@ -679,7 +679,7 @@ public class DispatchTest {
     HttpServer<ByteBuf, ByteBuf> server = newServer(
       new CorsSettings()
         .withHeader("X-Foo", "Bar")
-        .withSecurity(request -> false)
+        .withAuthorisation(request -> just(false))
     );
     HttpClientResponse<ByteBuf> response = getClient(server)
       .setHeader("Origin", "http://foo")
