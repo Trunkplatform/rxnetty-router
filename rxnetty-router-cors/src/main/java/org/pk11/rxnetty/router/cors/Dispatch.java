@@ -56,21 +56,18 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
     String allowedMethodsString = String.join(", ", allowedMethods);
     return (request, response) ->
       settings.authorisationHandler.allow(request)
-        .filter(allow -> allow)
+        .defaultIfEmpty(false)
         .flatMap(
-          v -> {
-            addPreflightOnlyHeaders(request, response, settings);
-            response.setHeader("Access-Control-Allow-Methods", allowedMethodsString);
-            return response.writeString(just(availableMethodsString));
-          }
-        )
-        .switchIfEmpty(
-          Observable.just(1).flatMap(
-            v -> {
+          allow -> {
+            if (allow) {
+              addPreflightOnlyHeaders(request, response, settings);
+              response.setHeader("Access-Control-Allow-Methods", allowedMethodsString);
+              return response.writeString(just(availableMethodsString));
+            } else {
               response.setStatus(HttpResponseStatus.UNAUTHORIZED);
               return response.sendHeaders();
             }
-          )
+          }
         );
   }
 
