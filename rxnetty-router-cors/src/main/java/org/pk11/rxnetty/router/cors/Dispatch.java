@@ -60,8 +60,13 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
         .flatMap(
           allow -> {
             if (allow) {
-              addPreflightOnlyHeaders(request, response, settings);
-              response.setHeader("Access-Control-Allow-Methods", allowedMethodsString);
+              if (isCors(request)) {
+                addPreflightOnlyHeaders(request, response, settings, allowedMethodsString);
+              }
+              settings.headers.entrySet().forEach(
+                header ->
+                  response.setHeader(header.getKey(), header.getValue())
+              );
               return response.writeString(just(availableMethodsString));
             } else {
               response.setStatus(HttpResponseStatus.UNAUTHORIZED);
@@ -71,6 +76,10 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
         );
   }
 
+  private static boolean isCors(HttpServerRequest<?> request) {
+    return request.containsHeader("Origin");
+  }
+
   private Dispatch(CorsSettings settings, org.pk11.rxnetty.router.Dispatch<I, O> delegate) {
     this.settings = settings;
     this.delegate = delegate;
@@ -78,10 +87,8 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
 
   @Override
   public Observable<Void> handle(HttpServerRequest<I> request, HttpServerResponse<O> response) {
-    String origin = request.getHeader("Origin");
-    boolean isCors = request.containsHeader("Origin") && notSameOrigin(request, origin);
-
-    if (isCors) {
+    if (isCors(request)) {
+      String origin = request.getHeader("Origin");
       if (originNotAllowed(origin)) {
         return response.sendHeaders();
       }
@@ -98,10 +105,11 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
     }
   }
 
-  private static <I, O> void addPreflightOnlyHeaders(
-    HttpServerRequest<I> request,
-    HttpServerResponse<O> response,
-    CorsSettings settings
+  private static void addPreflightOnlyHeaders(
+    HttpServerRequest<?> request,
+    HttpServerResponse<?> response,
+    CorsSettings settings,
+    String allowedMethodsString
   ) {
     if (settings.maxAge != null) {
       response.setHeader("Access-Control-Max-Age", settings.maxAge.get(ChronoUnit.SECONDS));
@@ -109,10 +117,7 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
     if (request.containsHeader("Access-Control-Request-Headers") || settings.allowedHeaders.length() > 0) {
       response.setHeader("Access-Control-Allow-Headers", settings.allowedHeaders);
     }
-    settings.headers.entrySet().forEach(
-      header ->
-        response.setHeader(header.getKey(), header.getValue())
-    );
+    response.setHeader("Access-Control-Allow-Methods", allowedMethodsString);
   }
 
   private void addSharedHeaders(HttpServerResponse<O> response, String origin) {
@@ -125,10 +130,6 @@ public class Dispatch<I, O> implements RequestHandler<I, O> {
 
   private boolean originNotAllowed(String origin) {
     return !settings.allowedOrigins.isEmpty() && !settings.allowedOrigins.contains(origin);
-  }
-
-  private boolean notSameOrigin(HttpServerRequest<I> request, String origin) {
-    return !origin.endsWith(request.getHeader("Host"));
   }
 
   public static class CorsSettings {

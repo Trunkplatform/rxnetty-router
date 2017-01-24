@@ -9,6 +9,7 @@ import io.reactivex.netty.protocol.http.server.HttpServer;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
+import io.reactivex.netty.util.CollectBytes;
 import org.junit.Test;
 import org.pk11.rxnetty.router.Router;
 import org.pk11.rxnetty.router.cors.Dispatch.CorsSettings;
@@ -95,30 +96,6 @@ public class DispatchTest {
   }
 
   @Test
-  public void shouldIgnoreCorsRequestWithSameOrigin() throws Exception {
-    HttpServer<ByteBuf, ByteBuf> server = newServer(new CorsSettings());
-    HttpClientResponse<ByteBuf> response = getClient(server)
-      .setHeader("Origin", "http://localhost:" + server.getServerPort())
-      .toBlocking()
-      .first();
-
-    String content = getContent(response);
-
-    assertFalse(response.containsHeader("Access-Control-Allow-Origin"));
-    assertFalse(response.containsHeader("Access-Control-Allow-Methods"));
-    assertFalse(response.containsHeader("Access-Control-Allow-Headers"));
-    assertFalse(response.containsHeader("Access-Control-Allow-Credentials"));
-    assertFalse(response.containsHeader("Access-Control-Max-Age"));
-    assertFalse(response.containsHeader("Access-Control-Expose-Headers"));
-
-    assertEquals(HttpResponseStatus.OK, response.getStatus());
-
-    assertEquals("Hello!", content);
-
-    server.shutdown();
-  }
-
-  @Test
   public void shouldDefaultToAnyOriginForGivenSimpleRequest() throws Exception {
     HttpServer<ByteBuf, ByteBuf> server = newServer(new CorsSettings());
     HttpClientResponse<ByteBuf> response = getClient(server)
@@ -142,6 +119,7 @@ public class DispatchTest {
     HttpServer<ByteBuf, ByteBuf> server = newServer(
       new CorsSettings()
       .allowOrigin("http://bar")
+      .allowOrigin("http://bar.foo")
     );
     HttpClientResponse<ByteBuf> response = getClient(server)
       .setHeader("Origin", "http://foo")
@@ -691,4 +669,28 @@ public class DispatchTest {
     server.shutdown();
   }
 
+  @Test
+  public void shouldNotAddCorsOnlyHeadersToNonCorsOptions() throws Exception {
+    HttpServer<ByteBuf, ByteBuf> server = newServer(
+      new CorsSettings()
+        .withHeader("X-Foo", "Bar")
+        .allowCredential(true)
+        .allowHeader("allowheader")
+        .maxAge(Duration.ofMillis(100))
+    );
+    HttpClientResponse<ByteBuf> response = optionsClient(server)
+      .toBlocking()
+      .first();
+
+    assertEquals(HttpResponseStatus.OK, response.getStatus());
+    assertEquals("Bar", response.getHeader("X-Foo"));
+    assertEquals("GET", response.getContent().compose(CollectBytes.all()).map(b ->b.toString(Charset.defaultCharset())).toBlocking().first());
+    assertFalse(response.containsHeader("Access-Control-Allow-Origin"));
+    assertFalse(response.containsHeader("Access-Control-Expose-Headers"));
+    assertFalse(response.containsHeader("Access-Control-Max-Age"));
+    assertFalse(response.containsHeader("Access-Control-Allow-Credentials"));
+    assertFalse(response.containsHeader("Access-Control-Allow-Methods"));
+    assertFalse(response.containsHeader("Access-Control-Allow-Headers"));
+    server.shutdown();
+  }
 }
